@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+* {
+    margin:0;
+    padding: 0;
+    box-sizing: 0;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+
+
+.overlay{
+position: absolute;
+inset: 0;
+background: rgba(0,0,0,0.35);
+z-index: 0;
+}
+
+body {
+    background: url('images/image.jpg') no-repeat center center fixed;
+    background-size: cover; 
+    backdrop-filter: blur(10px) saturate(120%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Open Sans', sans-serif
+}
+
+.card{
+position: relative;
+z-index: 1;
+width: min(420px, 92%);
+padding: 28px;
+border-radius: 12px;
+display:flex;
+flex-direction:column;
+gap:14px;
+align-items:stretch;
+background: rgba(255, 255, 255, 0.35);
+backdrop-filter: blur(100px) saturate(120%);
+-webkit-backdrop-filter: blur(10px) saturate(120%);
+
+}
+
+
+.title{
+text-align:center;
+font-weight:700;
+font-size:18px;
+margin-bottom:4px;
+color:#222;
+}
+.subtitle{
+text-align:center;
+font-size:13px;
+color:#444;
+margin-bottom:8px;
+}
+
+
+.btn{
+display:inline-flex;
+align-items:center;
+justify-content:center;
+gap:10px;
+padding:14px 18px;
+border-radius:10px;
+text-decoration:none;
+font-weight:600;
+font-size:15px;
+border: 2px solid rgba(0,0,0,0.06);
+cursor:pointer;
+transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease;
+background: linear-gradient(180deg, #ffffff, #f3f3f3);
+color:#111;
+box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+}
+.btn:active{transform: translateY(1px)}
+.btn:focus{outline:3px solid rgba(66,133,244,0.18); outline-offset:2px}
+.btn:hover{transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.12)}
+
+
+.btn.primary{ background: linear-gradient(180deg,#3b82f6,#2563eb); color:white; border: none }
+.btn.primary:hover{ transform: translateY(-4px) scale(1.01) }
+
+
+.note{font-size:12px;color:#333;text-align:center;margin-top:6px;opacity:.9}
+
+
+@media (max-width:420px){
+.card{padding:18px}
+.btn{padding:12px 14px;font-size:14px}
+}
