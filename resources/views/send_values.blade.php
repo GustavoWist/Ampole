@@ -15,47 +15,73 @@
                         <h1 class="text-center mb-4">Informe suas economias</h1>
                         <div class="col-12">
 
-                            <form action="{{ route('economies.store')}}" method="post" novalidate>
+                            <form action="{{ route('economies.store') }}" method="post" novalidate>
                                 @csrf
 
+                                {{-- Renda Principal --}}
                                 <h4 class="mb-3">Renda Principal</h4>
                                 <div class="row mb-4">
                                     <div class="col-md-6 mb-3">
                                         <label for="renda_principal_origem" class="form-label">Origem Principal</label>
-                                        <input type="text" class="form-control" name="rendas[0][origem]" id="renda_principal_origem" value="{{ old('rendas.0.origem', 'Salário Principal') }}" required>
-                                        </div>
+                                        <input type="hidden" name="rendas[0][id]" value="{{ $rendas[0]->id ?? '' }}">
+                                        <input type="text" class="form-control"
+                                            name="rendas[0][origem]"
+                                            id="renda_principal_origem"
+                                            value="{{ old('rendas.0.origem', $rendas[0]->origem ?? 'Salário Principal') }}"
+                                            required>
+                                    </div>
                                     <div class="col-md-6 mb-3">
                                         <label for="renda_principal_valor" class="form-label">Valor Principal</label>
-                                        <input type="number" step="0.01" class="form-control text-info" name="rendas[0][valor]" id="renda_principal_valor" value="{{ old('rendas.0.valor') }}" required>
+                                        <input type="number" step="0.01" class="form-control text-info"
+                                            name="rendas[0][valor]"
+                                            id="renda_principal_valor"
+                                            value="{{ old('rendas.0.valor', $rendas[0]->valor ?? '') }}"
+                                            required>
                                     </div>
                                 </div>
                                 <hr>
 
+                                {{-- Rendas Extras --}}
                                 <h4 class="mt-4 mb-3 d-flex justify-content-between align-items-center">
                                     Rendas Extras
                                     <button type="button" class="btn btn-primary btn-sm" id="add-renda-btn">+</button>
                                 </h4>
-                                
+
                                 <div id="rendas-extras-container">
-                                    <div class="row mb-3 renda-extra-item" data-index="1">
-                                        <div class="col-md-5 mb-3">
-                                            <label class="form-label">Origem Extra</label>
-                                            <input type="text" class="form-control" name="rendas[1][origem]" value="{{ old('rendas.1.origem') }}" placeholder="Ex: Freela, Aluguel, etc.">
+                                    @php
+                                        $extras = $rendas->skip(1) ?? collect();
+                                    @endphp
+
+                                    @foreach ($extras as $i => $extra)
+                                        <input type="hidden" name="rendas[{{ $i + 1 }}][id]" value="{{ $extra->id }}">
+                                        <div class="row mb-3 renda-extra-item" data-index="{{ $i + 1 }}">
+                                            <div class="col-md-5 mb-3">
+                                                <label class="form-label">Origem Extra {{ $i + 1 }}</label>
+                                                <input type="text" class="form-control"
+                                                    name="rendas[{{ $i + 1 }}][origem]"
+                                                    value="{{ old("rendas.$i.origem", $extra->origem) }}">
+                                            </div>
+                                            <div class="col-md-5 mb-3">
+                                                <label class="form-label">Valor Extra {{ $i + 1 }}</label>
+                                                <input type="number" step="0.01" class="form-control text-info"
+                                                    name="rendas[{{ $i + 1 }}][valor]"
+                                                    value="{{ old("rendas.$i.valor", $extra->valor) }}"
+                                                    required>
+                                            </div>
+                                            <div class="col-md-2 d-flex align-items-end mb-3">
+                                                <button type="button" class="btn btn-danger w-100 remove-renda-btn">Remover</button>
+                                            </div>
                                         </div>
-                                        <div class="col-md-5 mb-3">
-                                            <label class="form-label">Valor Extra</label>
-                                            <input type="number" step="0.01" class="form-control text-info" name="rendas[1][valor]" value="{{ old('rendas.1.valor') }}" required>
-                                        </div>
-                                        <div class="col-md-2 d-flex align-items-end mb-3">
-                                            <button type="button" class="btn btn-danger w-100 remove-renda-btn">Remover</button>
-                                        </div>
-                                    </div>
+                                    @endforeach
                                 </div>
-                                
+
                                 <div class="mb-3 mt-4">
-                                    <button type="submit" class="btn btn-secondary w-100">Finalizar</button>
+                                    <button type="submit" class="btn btn-secondary w-100">
+                                        {{ $rendas->isEmpty() ? 'Salvar' : 'Atualizar' }}
+                                    </button>
                                 </div>
                             </form>
+
 
                             {{-- Tratamento de Erros (Se houver) --}}
                             @if(session('loginError'))

@@ -30,10 +30,10 @@
                 <a href="send_values" class="btn btn-outline-secondary" role="button">
                     Enviar Economias
                 </a>
-                <a href="pagina2.php" class="btn btn-outline-secondary" role="button">
-                    Página 2
+                <a href="show_rendas" class="btn btn-outline-secondary" role="button">
+                    Minhas Economias
                 </a>
-                <a href="pagina3.php" class="btn btn-outline-secondary" role="button">
+                {{-- <a href="pagina3.php" class="btn btn-outline-secondary" role="button">
                     Página 3
                 </a>
                 <a href="pagina4.php" class="btn btn-outline-secondary" role="button">
@@ -41,6 +41,9 @@
                 </a>
                 <a href="pagina5.php" class="btn btn-outline-secondary" role="button">
                     Página 5
+                </a> --}}
+                <a href="logout" class="btn btn-outline-secondary" role="button">
+                    Sair
                 </a>
             </div>
         </main>

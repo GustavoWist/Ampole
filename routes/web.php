@@ -22,12 +22,16 @@ Route::middleware([CheckIsLogged::class])->group(function(){
     Route::get('/', [MainController::class, 'index']);
     Route::get('/newNote', [MainController::class, 'newNote']);
     Route::get('/logout', [AuthController::class, 'logout']);
-    Route::get('/send_values', function(){
-        return view('send_values');
-    });
     
-
+    // 🔧 Corrigido aqui:
+    Route::get('/send_values', [EconomiesController::class, 'edit'])->name('economies.edit');
+    
+    Route::get('/show_rendas', [EconomiesController::class, 'show'])->name('economies.show');
+    Route::get('/rendas/edit', [EconomiesController::class, 'edit'])->name('economies.edit');
+    Route::post('/rendas/store', [EconomiesController::class, 'store'])->name('economies.store');
+    Route::delete('/rendas/{id}', [EconomiesController::class, 'destroy'])->name('economies.destroy');
 });
+
 
 
 Route::post('/economies', [EconomiesController::class, 'store'])->name('economies.store'); 
