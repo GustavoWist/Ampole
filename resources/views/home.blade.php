@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
-    <link rel="stylesheet" href="{{asset('assets/bootstrap/bootstrap.min.css')}}">
-    
+    <link rel="stylesheet" href="{{ asset('assets/bootstrap/bootstrap.min.css') }}">
     <style>
         body {
-            background-color: #30373F; /* Cor de fundo clara do Bootstrap */
+            background-color: #30373F;
         }
         .custom-card-container {
             min-height: 100vh;
@@ -19,34 +18,41 @@
     </style>
 </head>
 <body>
-    <div class="custom-card-container">
-        <main class="card p-4 shadow" style="width: 100%; max-width: 400px;">
-            <div class="text-center mb-4">
-                <h1 class="card-title">Painel</h1>
-                <p class="text-muted">Opções de Gerenciamento</p>
-            </div>
+<div class="custom-card-container">
+    <main class="card p-4 shadow" style="width: 100%; max-width: 420px;">
+        <div class="text-center mb-4">
+            <h1 class="card-title">Painel</h1>
+            <p class="text-muted">Opções de Gerenciamento</p>
+        </div>
 
-            <div class="d-grid gap-2">
-                <a href="send_values" class="btn btn-outline-secondary" role="button">
-                    Enviar Economias
-                </a>
-                <a href="show_rendas" class="btn btn-outline-secondary" role="button">
-                    Minhas Economias
-                </a>
-                {{-- <a href="pagina3.php" class="btn btn-outline-secondary" role="button">
-                    Página 3
-                </a>
-                <a href="pagina4.php" class="btn btn-outline-secondary" role="button">
-                    Página 4
-                </a>
-                <a href="pagina5.php" class="btn btn-outline-secondary" role="button">
-                    Página 5
-                </a> --}}
-                <a href="logout" class="btn btn-outline-secondary" role="button">
-                    Sair
-                </a>
-            </div>
-        </main>
-    </div>
+        <div class="d-grid gap-2">
+            {{-- Rendas --}}
+            <a href="{{ route('economies.edit') }}" class="btn btn-outline-secondary" role="button">
+                Enviar Economias
+            </a>
+            <a href="{{ route('economies.show') }}" class="btn btn-outline-secondary" role="button">
+                Minhas Economias
+            </a>
+
+            {{-- Gastos --}}
+            <a href="{{ route('gastos.create') }}" class="btn btn-outline-secondary" role="button">
+                Adicionar Gastos
+            </a>
+            <a href="{{ route('gastos.index') }}" class="btn btn-outline-secondary" role="button">
+                Meus Gastos
+            </a>
+
+            {{-- Saldo (Rendas - Gastos) --}}
+            <a href="{{ route('economies.saldo') }}" class="btn btn-outline-secondary" role="button">
+                Ver Saldo
+            </a>
+
+            {{-- Sair --}}
+            <a href="{{ url('logout') }}" class="btn btn-outline-secondary" role="button">
+                Sair
+            </a>
+        </div>
+    </main>
+</div>
 </body>
 </html>

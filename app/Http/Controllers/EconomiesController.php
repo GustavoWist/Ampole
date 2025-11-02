@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Renda;
 use Illuminate\Http\Request;
+use App\Models\Gasto;
+
 
 class EconomiesController extends Controller
 {
@@ -102,4 +104,20 @@ class EconomiesController extends Controller
 
         return redirect()->route('economies.show')->with('success', 'Renda excluída com sucesso!');
     }
+    public function saldo()
+    {
+        $sessionUser = session('user');
+        if (!$sessionUser || !isset($sessionUser['id'])) {
+            return redirect('/prohibited')->with('loginError', 'Sua sessão expirou. Faça login novamente.');
+        }
+
+        $userId = $sessionUser['id'];
+
+        $totalRendas = (float) Renda::where('user_id', $userId)->sum('valor');
+        $totalGastos = (float) Gasto::where('user_id', $userId)->sum('valor');
+        $saldo = $totalRendas - $totalGastos;
+
+        return view('saldo', compact('totalRendas', 'totalGastos', 'saldo'));
+    }
+
 }
