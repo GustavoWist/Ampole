@@ -36,9 +36,11 @@
     </div>
 
     <div class="mt-4 d-flex gap-2">
-        <a href="{{ route('economies.show') }}" class="btn btn-outline-secondary">Ver rendas</a>
-        <a href="{{ route('gastos.index') }}" class="btn btn-outline-secondary">Ver gastos</a>
-        <a href="{{ route('gastos.create') }}" class="btn btn-primary">Adicionar gastos</a>
+        <a href="{{ route('economies.show') }}" class="btn btn-outline-secondary ">Ver rendas</a>
+        <a href="{{ route('gastos.index') }}" class="btn btn-outline-secondary ">Ver gastos</a>
+        <a href="{{ route('gastos.create') }}" class="btn btn-outline-secondary ">Adicionar gastos</a>
+        <a href="{{ route('home') }}" class="btn btn-outline-secondary ">Voltar ao Painel</a>
+
     </div>
 </div>
 </body>

@@ -45,6 +45,9 @@
                                 <button type="submit" class="btn btn-secondary w-100">Salvar gastos</button>
                             </div>
                         </form>
+                        
+                        <a href="{{ route('home') }}" class="btn btn-outline-secondary mt-3">Voltar ao Painel</a>
+
 
                         @if(session('loginError'))
                             <div class="alert alert-danger text-center mt-3">

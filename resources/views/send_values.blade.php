@@ -87,7 +87,7 @@
                                     @endforeach
                                 </div>
 
-
+                                
                                 <div class="mb-3 mt-4">
                                     <button type="submit" class="btn btn-secondary w-100">
                                         {{ $rendas->isEmpty() ? 'Salvar' : 'Atualizar' }}
@@ -95,6 +95,7 @@
                                 </div>
                             </form>
 
+                            <a href="{{ route('home') }}" class="btn btn-outline-secondary mt-3">Voltar ao Painel</a>
 
                             {{-- Tratamento de Erros (Se houver) --}}
                             @if(session('loginError'))

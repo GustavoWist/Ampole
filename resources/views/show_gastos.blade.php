@@ -47,7 +47,9 @@
         </div>
     @endif
 
-    <a href="{{ route('gastos.create') }}" class="btn btn-primary mt-3">Adicionar gastos</a>
+    <a href="{{ route('gastos.create') }}" class="btn btn-outline-secondary mt-3">Adicionar gastos</a>
+    <a href="{{ route('home') }}" class="btn btn-outline-secondary mt-3">Voltar ao Painel</a>
+    
 </div>
 </body>
 </html>
