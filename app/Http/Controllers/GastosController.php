@@ -21,17 +21,37 @@ class GastosController extends Controller
         [$userId, $redirect] = $this->requireSessionUser();
         if ($redirect) return $redirect;
 
-        // página para cadastrar 1..n gastos
         return view('send_expenses');
     }
 
-    public function index()
+    public function index(Request $request)
     {
         [$userId, $redirect] = $this->requireSessionUser();
         if ($redirect) return $redirect;
 
-        $gastos = Gasto::where('user_id', $userId)->orderBy('created_at', 'desc')->get();
-        return view('show_gastos', compact('gastos'));
+        $sort = $request->query('sort', 'date_desc');
+
+        $query = Gasto::where('user_id', $userId);
+
+        switch ($sort) {
+            case 'date_asc':
+                $query->orderByRaw('COALESCE(`data`, `created_at`) ASC');
+                break;
+            case 'valor_asc':
+                $query->orderBy('valor', 'asc');
+                break;
+            case 'valor_desc':
+                $query->orderBy('valor', 'desc');
+                break;
+            case 'date_desc':
+            default:
+                $query->orderByRaw('COALESCE(`data`, `created_at`) DESC');
+                break;
+        }
+
+        $gastos = $query->get();
+
+        return view('show_gastos', compact('gastos', 'sort'));
     }
 
     public function store(Request $request)

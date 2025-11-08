@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Análises & Gráficos</title>
     <link rel="stylesheet" href="{{ asset('assets/bootstrap/bootstrap.min.css') }}">
     <style>
@@ -11,23 +11,23 @@
         .stat { font-size: 1.4rem; }
         .text-muted-invert { color: #cbd5e1; }
         .table-sm td, .table-sm th { padding: .4rem .5rem; }
+        .legend-pill { padding: .2rem .5rem; border-radius: 9999px; font-size: .8rem; background:#eef2f7; color:#111827; }
     </style>
 </head>
 <body>
-
-
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="text-light h3 m-0">Análises & Gráficos</h1>
         <a class="btn btn-outline-light" href="{{ route('analytics.index') }}">Atualizar</a>
     </div>
 
+    <!-- Filtro com SELECT (dropdown) -->
     <div class="card p-3 mb-3">
         <div class="row g-3 align-items-end">
             <div class="col-sm-6 col-md-3">
                 <label class="form-label">Período</label>
                 <select id="months" class="form-select">
-                    @php $mSel = (int) request('months', 12); @endphp
+                    @php $mSel = (int) request('months', 3); @endphp
                     <option value="3"  {{ $mSel===3  ? 'selected' : '' }}>Últimos 3 meses</option>
                     <option value="6"  {{ $mSel===6  ? 'selected' : '' }}>Últimos 6 meses</option>
                     <option value="12" {{ $mSel===12 ? 'selected' : '' }}>Últimos 12 meses</option>
@@ -46,7 +46,12 @@
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card p-3" style="min-height: 420px;">
-                <h5 class="mb-3">Rendas × Gastos (mensal) + Saldo</h5>
+                <h5 class="mb-2">Rendas × Gastos (mensal) + Saldos</h5>
+                <div class="mb-2 d-flex flex-wrap gap-2">
+                    <span class="legend-pill">Barras: Rendas & Gastos</span>
+                    <span class="legend-pill">Linha: Saldo do mês</span>
+                    <span class="legend-pill">Linha: Saldo acumulado</span>
+                </div>
                 <div style="height: 360px;">
                     <canvas id="chartCashflow"></canvas>
                 </div>
@@ -101,19 +106,44 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 let chart;
-const elMonths   = document.getElementById('months');
-const elTotR     = document.getElementById('totR');
-const elTotG     = document.getElementById('totG');
-const elTotS     = document.getElementById('totS');
-const elTotSR    = document.getElementById('totSR');
-const elInsights = document.getElementById('insights');
-const elNotice   = document.getElementById('chartNotice');
-const elMonthRows= document.getElementById('monthRows');
+const elMonths    = document.getElementById('months');
+const elTotR      = document.getElementById('totR');
+const elTotG      = document.getElementById('totG');
+const elTotS      = document.getElementById('totS');
+const elTotSR     = document.getElementById('totSR');
+const elInsights  = document.getElementById('insights');
+const elNotice    = document.getElementById('chartNotice');
+const elMonthRows = document.getElementById('monthRows');
 
-function brl(n) {
-    return (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
+function brl(n){ return (n ?? 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 function media(arr){ if(!arr || !arr.length) return 0; return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function sum(arr){ return (arr||[]).reduce((a,b)=>a+(+b||0),0); }
+
+// Tolerante ao payload
+function normalizePayload(data){
+    const labels = data.labels || (data.datasets && data.datasets.labels) || [];
+    const rendas = data.rendas || (data.datasets && data.datasets.rendas) || [];
+    const gastos = data.gastos || (data.datasets && data.datasets.gastos) || [];
+    const saldoMes  = data.saldo_mes ?? (data.datasets ? data.datasets.saldo : data.saldo) ?? [];
+    const saldoAcum = data.saldo_acumulado || (data.datasets && data.datasets.saldo_acumulado) || [];
+
+    let totals = data.totals;
+    if (!totals){
+        const tR = sum(rendas), tG = sum(gastos), tS = tR - tG;
+        const sr = tR > 0 ? ((tS / tR) * 100) : 0;
+        totals = { rendas: tR, gastos: tG, saldo: tS, saving_rate: sr.toFixed(1) };
+    }
+    let months_breakdown = data.months_breakdown;
+    if (!months_breakdown){
+        months_breakdown = labels.map((label, i) => {
+            const r = +rendas[i] || 0, g = +gastos[i] || 0;
+            const s = Number.isFinite(+saldoMes[i]) ? +saldoMes[i] : (r - g);
+            return { label, rendas: r, gastos: g, saldo: s };
+        });
+    }
+
+    return { labels, rendas, gastos, saldoMes, saldoAcum, totals, months_breakdown };
+}
 
 function renderTable(breakdown){
     if(!breakdown || !breakdown.length){
@@ -130,37 +160,36 @@ function renderTable(breakdown){
     ).join('');
 }
 
-function render(data) {
+function render(raw) {
+    const data = normalizePayload(raw);
+
     // Totais
-    const totals = data.totals || { rendas:0, gastos:0, saldo:0, saving_rate:0 };
-    elTotR.textContent = brl(totals.rendas);
-    elTotG.textContent = brl(totals.gastos);
-    elTotS.textContent = brl(totals.saldo);
-    elTotS.className = 'stat ' + ((totals.saldo ?? 0) >= 0 ? 'text-success' : 'text-danger');
-    elTotSR.textContent = `${totals.saving_rate}%`;
+    elTotR.textContent = brl(data.totals.rendas);
+    elTotG.textContent = brl(data.totals.gastos);
+    elTotS.textContent = brl(data.totals.saldo);
+    elTotS.className = 'stat ' + ((data.totals.saldo ?? 0) >= 0 ? 'text-success' : 'text-danger');
+    elTotSR.textContent = `${data.totals.saving_rate}%`;
 
-    // Tabela mês a mês
-    renderTable(data.months_breakdown || []);
+    // Tabela
+    renderTable(data.months_breakdown);
 
-    // Insights (melhor/pior mês, baseados no saldo mensal)
-    const labels = data.labels || [];
-    const ds     = data.datasets || { rendas:[], gastos:[], saldo:[] };
-    if (ds.saldo && ds.saldo.length) {
-        const maxSaldo = Math.max(...ds.saldo);
-        const minSaldo = Math.min(...ds.saldo);
-        const iMax = ds.saldo.indexOf(maxSaldo);
-        const iMin = ds.saldo.indexOf(minSaldo);
+    // Insights
+    if (data.saldoMes && data.saldoMes.length) {
+        const maxSaldo = Math.max(...data.saldoMes);
+        const minSaldo = Math.min(...data.saldoMes);
+        const iMax = data.saldoMes.indexOf(maxSaldo);
+        const iMin = data.saldoMes.indexOf(minSaldo);
         elInsights.innerHTML = `
-            <li>Melhor mês (saldo): <strong>${labels[iMax]}</strong> (${brl(maxSaldo)})</li>
-            <li>Pior mês (saldo): <strong>${labels[iMin]}</strong> (${brl(minSaldo)})</li>
-            <li>Média mensal de rendas: <strong>${brl(media(ds.rendas||[]))}</strong></li>
-            <li>Média mensal de gastos: <strong>${brl(media(ds.gastos||[]))}</strong></li>
+            <li>Melhor mês (saldo): <strong>${data.labels[iMax] ?? '-'}</strong> (${brl(maxSaldo)})</li>
+            <li>Pior mês (saldo): <strong>${data.labels[iMin] ?? '-'}</strong> (${brl(minSaldo)})</li>
+            <li>Média mensal de rendas: <strong>${brl(media(data.rendas||[]))}</strong></li>
+            <li>Média mensal de gastos: <strong>${brl(media(data.gastos||[]))}</strong></li>
         `;
     } else {
         elInsights.innerHTML = `<li>Sem dados para o período selecionado.</li>`;
     }
 
-    // Gráfico
+    // Gráfico (barras + linhas)
     const ctx = document.getElementById('chartCashflow').getContext('2d');
     if (chart) chart.destroy();
 
@@ -173,21 +202,31 @@ function render(data) {
     elNotice.style.display = 'none';
     chart = new Chart(ctx, {
         data: {
-            labels: labels,
+            labels: data.labels,
             datasets: [
-                { type: 'bar',  label: 'Rendas', data: ds.rendas },
-                { type: 'bar',  label: 'Gastos', data: ds.gastos },
-                { type: 'line', label: 'Saldo',  data: ds.saldo, tension: 0.2 }
+                { type: 'bar',  label: 'Rendas', data: data.rendas },
+                { type: 'bar',  label: 'Gastos', data: data.gastos },
+                { type: 'line', label: 'Saldo do mês', data: data.saldoMes, tension: 0.25, yAxisID: 'y' },
+                { type: 'line', label: 'Saldo acumulado', data: data.saldoAcum, tension: 0.25, yAxisID: 'y' }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            // <<< Mostra só o elemento sob o mouse >>>
+            interaction: { mode: 'nearest', intersect: true },
             scales: {
-                y: { ticks: { callback: (v)=> brl(v) } }
+                x: { ticks: { color: '#e5e7eb' }, grid: { color: 'rgba(229,231,235,.12)' } },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#e5e7eb', callback: v => brl(v) },
+                    grid: { color: 'rgba(229,231,235,.12)' }
+                }
             },
             plugins: {
+                legend: { labels: { color: '#e5e7eb' } },
                 tooltip: {
+                    // apenas formatação do texto (a lógica de 1 só item é pelo interaction acima)
                     callbacks: { label: (ctx)=> `${ctx.dataset.label}: ${brl(ctx.parsed.y)}` }
                 }
             }
@@ -197,7 +236,7 @@ function render(data) {
 
 async function loadData() {
     try {
-        const months = elMonths.value;
+        const months = document.getElementById('months').value;
         const url = `{{ route('analytics.data') }}?months=${months}`;
         const res = await fetch(url, { credentials: 'same-origin' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -211,13 +250,11 @@ async function loadData() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Render inicial com payload do servidor (já mensal)
-    render(window.__AN || {
-        labels:[], datasets:{rendas:[],gastos:[],saldo:[]},
-        totals:{rendas:0,gastos:0,saldo:0,saving_rate:0},
-        months_breakdown:[]
-    });
-    // Buscar dados ao trocar o período
+    // Seleciona 3 meses por padrão e carrega
+    elMonths.value = elMonths.value || '3';
+    loadData();
+
+    // Atualiza ao trocar
     elMonths.addEventListener('change', loadData);
 });
 </script>

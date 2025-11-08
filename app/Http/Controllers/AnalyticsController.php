@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Renda;
 use App\Models\Gasto;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 
 class AnalyticsController extends Controller
 {
@@ -21,118 +19,144 @@ class AnalyticsController extends Controller
         return [$sessionUser['id'], null];
     }
 
-    private function buildPayload(int $userId, int $months = 12): array
+    public function index()
     {
-        $months = max(1, min(36, $months));
-        $end   = Carbon::now()->endOfMonth();
-        $start = (clone $end)->subMonths($months - 1)->startOfMonth();
+        [$userId, $redirect] = $this->requireSessionUser();
+        if ($redirect) return $redirect;
 
-        // ---- AGRUPAMENTO POR MÊS USANDO A "DATA ESCOLHIDA" ----
-        // MySQL / MariaDB:
+        return view('analytics');
+    }
+
+    public function data(\Illuminate\Http\Request $request)
+    {
+        // --- sessão ---
+        $sessionUser = session('user');
+        if (!$sessionUser || !isset($sessionUser['id'])) {
+            return response()->json([
+                'error' => 'unauthenticated'
+            ], 401);
+        }
+        $userId = $sessionUser['id'];
+
+        // --- período ---
+        $monthsParam = (int) $request->query('months', 0); // se vier, tem prioridade
+        $startYm     = $request->query('start');           // 'YYYY-MM'
+        $endYm       = $request->query('end');             // 'YYYY-MM'
+
+        try {
+            if ($monthsParam > 0) {
+                // últimos N meses (inclui mês atual)
+                $end   = \Carbon\Carbon::now()->startOfMonth();
+                $start = (clone $end)->subMonths(max(1, $monthsParam) - 1);
+            } elseif ($startYm && $endYm) {
+                $start = \Carbon\Carbon::createFromFormat('Y-m', $startYm)->startOfMonth();
+                $end   = \Carbon\Carbon::createFromFormat('Y-m', $endYm)->startOfMonth();
+                if ($start->greaterThan($end)) {
+                    [$start, $end] = [$end, $start];
+                }
+            } else {
+                // padrão: 12 meses
+                $end   = \Carbon\Carbon::now()->startOfMonth();
+                $start = (clone $end)->subMonths(11);
+            }
+        } catch (\Throwable $e) {
+            // fallback seguro
+            $end   = \Carbon\Carbon::now()->startOfMonth();
+            $start = (clone $end)->subMonths(11);
+        }
+
+        // monta sequência de meses ASC
+        $months = [];
+        $walker = $start->copy();
+        while ($walker <= $end) {
+            $months[] = $walker->format('Y-m');
+            $walker->addMonth();
+        }
+
+        // Expressões de ano-mês pelo COALESCE(data, created_at)
         $dateExprR = "DATE_FORMAT(COALESCE(rendas.data, rendas.created_at), '%Y-%m')";
         $dateExprG = "DATE_FORMAT(COALESCE(gastos.data, gastos.created_at), '%Y-%m')";
-        $betweenR  = DB::raw('COALESCE(`rendas`.`data`, `rendas`.`created_at`)');
-        $betweenG  = DB::raw('COALESCE(`gastos`.`data`, `gastos`.`created_at`)');
 
-        // SQLite (se usar):     $dateExprR = "strftime('%Y-%m', COALESCE(rendas.data, rendas.created_at))";
-        //                       $dateExprG = "strftime('%Y-%m', COALESCE(gastos.data, gastos.created_at))";
-        //                       $betweenR  = DB::raw('COALESCE(rendas.data, rendas.created_at)');
-        //                       $betweenG  = DB::raw('COALESCE(gastos.data, gastos.created_at)');
-        //
-        // Postgres (se usar):   $dateExprR = "to_char(COALESCE(rendas.data, rendas.created_at), 'YYYY-MM')";
-        //                       $dateExprG = "to_char(COALESCE(gastos.data, gastos.created_at), 'YYYY-MM')";
-        //                       $betweenR  = DB::raw('COALESCE(rendas.data, rendas.created_at)');
-        //                       $betweenG  = DB::raw('COALESCE(gastos.data, gastos.created_at)');
+        // janela de datas real (para WHERE BETWEEN)
+        $fromDate = $start->toDateString();
+        $toDate   = $end->copy()->endOfMonth()->toDateString();
 
-        $cacheKey = "analytics:{$userId}:{$start->format('Y-m')}:{$end->format('Y-m')}";
+        // --- consultas agregadas ---
+        $rendasMap = \App\Models\Renda::where('user_id', $userId)
+            ->whereBetween(\Illuminate\Support\Facades\DB::raw('COALESCE(data, created_at)'), [$fromDate, $toDate])
+            ->select(
+                \Illuminate\Support\Facades\DB::raw("$dateExprR as ym"),
+                \Illuminate\Support\Facades\DB::raw('SUM(valor) as total')
+            )
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
 
-        return Cache::remember($cacheKey, 60, function () use ($userId, $start, $end, $dateExprR, $dateExprG, $betweenR, $betweenG) {
+        $gastosMap = \App\Models\Gasto::where('user_id', $userId)
+            ->whereBetween(\Illuminate\Support\Facades\DB::raw('COALESCE(data, created_at)'), [$fromDate, $toDate])
+            ->select(
+                \Illuminate\Support\Facades\DB::raw("$dateExprG as ym"),
+                \Illuminate\Support\Facades\DB::raw('SUM(valor) as total')
+            )
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
 
-            $rendas = Renda::select(DB::raw("$dateExprR as ym"), DB::raw('SUM(valor) as total'))
-                ->where('user_id', $userId)
-                ->whereBetween($betweenR, [$start, $end])
-                ->groupBy('ym')
-                ->orderBy('ym')
-                ->pluck('total', 'ym');
+        // --- monta séries ---
+        $labels          = [];
+        $rendasSeries    = [];
+        $gastosSeries    = [];
+        $saldoMesSeries  = [];
+        $saldoAcumSeries = [];
 
-            $gastos = Gasto::select(DB::raw("$dateExprG as ym"), DB::raw('SUM(valor) as total'))
-                ->where('user_id', $userId)
-                ->whereBetween($betweenG, [$start, $end])
-                ->groupBy('ym')
-                ->orderBy('ym')
-                ->pluck('total', 'ym');
+        $running = 0.0;
+        foreach ($months as $ym) {
+            $labels[] = \Carbon\Carbon::createFromFormat('Y-m', $ym)->format('m/Y');
 
-            // Monta o eixo mensal e datasets
-            $labels = [];
-            $dsR = [];
-            $dsG = [];
-            $dsS = [];
-            $monthsBreakdown = [];
+            $r = (float) ($rendasMap[$ym] ?? 0);
+            $g = (float) ($gastosMap[$ym] ?? 0);
+            $s = $r - $g;
 
-            foreach (CarbonPeriod::create($start, '1 month', $end) as $m) {
-                $ym = $m->format('Y-m');
-                $label = $m->format('m/Y');
-                $labels[] = $label;
+            $running += $s;
 
-                $r = (float) ($rendas[$ym] ?? 0);
-                $g = (float) ($gastos[$ym] ?? 0);
-                $s = $r - $g;
+            $rendasSeries[]    = $r;
+            $gastosSeries[]    = $g;
+            $saldoMesSeries[]  = $s;
+            $saldoAcumSeries[] = $running;
+        }
 
-                $dsR[] = $r;
-                $dsG[] = $g;
-                $dsS[] = $s;
+        // --- totais e breakdown ---
+        $totR = array_sum($rendasSeries);
+        $totG = array_sum($gastosSeries);
+        $totS = $totR - $totG;
+        $savingRate = $totR > 0 ? round(($totS / $totR) * 100, 1) : 0.0;
 
-                $monthsBreakdown[] = [
-                    'ym'    => $ym,
-                    'label' => $label,
-                    'rendas'=> $r,
-                    'gastos'=> $g,
-                    'saldo' => $s,
-                ];
-            }
-
-            $totalRendas = array_sum($dsR);
-            $totalGastos = array_sum($dsG);
-            $saldoTotal  = $totalRendas - $totalGastos;
-            $savingRate  = $totalRendas > 0 ? round(($saldoTotal / $totalRendas) * 100, 1) : 0;
-
-            return [
-                'labels' => $labels,
-                'datasets' => [
-                    'rendas' => $dsR,
-                    'gastos' => $dsG,
-                    'saldo'  => $dsS,
-                ],
-                'totals' => [
-                    'rendas' => $totalRendas,
-                    'gastos' => $totalGastos,
-                    'saldo'  => $saldoTotal,
-                    'saving_rate' => $savingRate,
-                ],
-                'months_breakdown' => $monthsBreakdown, // 👈 resumo mês a mês
+        $months_breakdown = [];
+        foreach ($months as $i => $ym) {
+            $months_breakdown[] = [
+                'label'  => $labels[$i],
+                'rendas' => $rendasSeries[$i],
+                'gastos' => $gastosSeries[$i],
+                'saldo'  => $saldoMesSeries[$i],
             ];
-        });
+        }
+
+        return response()->json([
+            'labels'          => $labels,
+            'rendas'          => $rendasSeries,
+            'gastos'          => $gastosSeries,
+            'saldo_mes'       => $saldoMesSeries,
+            'saldo_acumulado' => $saldoAcumSeries,
+            'totals'          => [
+                'rendas' => $totR,
+                'gastos' => $totG,
+                'saldo'  => $totS,
+                'saving_rate' => $savingRate,
+            ],
+            'months_breakdown' => $months_breakdown,
+            'range' => [
+                'start' => $start->format('Y-m'),
+                'end'   => $end->format('Y-m'),
+            ],
+        ]);
     }
 
-    public function index(Request $request)
-    {
-        [$userId, $redirect] = $this->requireSessionUser();
-        if ($redirect) return $redirect;
-
-        $months = (int) $request->query('months', 12);
-        $initialPayload = $this->buildPayload($userId, $months);
-
-        return view('analytics', compact('initialPayload'));
-    }
-
-    public function data(Request $request)
-    {
-        [$userId, $redirect] = $this->requireSessionUser();
-        if ($redirect) return $redirect;
-
-        $months = (int) $request->query('months', 12);
-        $payload = $this->buildPayload($userId, $months);
-
-        return response()->json($payload);
-    }
 }
