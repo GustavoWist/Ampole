@@ -46,6 +46,11 @@
             <a href="{{ route('economies.saldo') }}" class="btn btn-outline-secondary" role="button">
                 Ver Saldo
             </a>
+           
+            <a href="{{ route('analytics.index') }}" class="btn btn-outline-secondary" role="button">
+                Análises & Gráficos
+            </a>
+
 
             {{-- Sair --}}
             <a href="{{ url('logout') }}" class="btn btn-outline-secondary" role="button">

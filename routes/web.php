@@ -7,6 +7,7 @@ use App\Http\Middleware\CheckIfLogged;
 use App\Http\Middleware\CheckIsLogged;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GastosController;
+use App\Http\Controllers\AnalyticsController;
 
 
 // auth routes
@@ -20,6 +21,9 @@ Route::middleware([CheckIfLogged::class])->group(function(){
 
 // 
 Route::middleware([CheckIsLogged::class])->group(function(){
+
+    Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+    Route::get('/analytics/data', [AnalyticsController::class, 'data'])->name('analytics.data');
     
     Route::get('/', [MainController::class, 'index'])->name('home');;
     Route::get('/newNote', [MainController::class, 'newNote']);

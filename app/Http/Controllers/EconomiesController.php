@@ -3,9 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Renda;
-use Illuminate\Http\Request;
 use App\Models\Gasto;
-
+use Illuminate\Http\Request;
 
 class EconomiesController extends Controller
 {
@@ -18,26 +17,26 @@ class EconomiesController extends Controller
 
         $validated = $request->validate([
             'rendas.*.origem' => 'required|string|max:255',
-            'rendas.*.valor' => 'required|numeric|min:0',
+            'rendas.*.valor'  => 'required|numeric|min:0',
+            'rendas.*.data'   => 'nullable|date',
         ]);
 
         $userId = $sessionUser['id'];
 
-        // IDs enviados do formulário
+        // IDs enviados do formulário (para não apagar o que existe)
         $enviadasIds = collect($request->input('rendas'))
             ->pluck('id')
             ->filter()
             ->toArray();
 
-        // Deleta apenas rendas que não vieram no formulário (usuário removeu manualmente)
+        // Deleta apenas rendas removidas da tela
         Renda::where('user_id', $userId)
             ->whereNotIn('id', $enviadasIds)
             ->delete();
 
-        // Atualiza ou cria novas rendas
+        // Atualiza ou cria
         foreach ($request->input('rendas') as $index => $rendaData) {
-            if (isset($rendaData['id'])) {
-                // Atualizar existente
+            if (!empty($rendaData['id'])) {
                 $renda = Renda::where('user_id', $userId)
                     ->where('id', $rendaData['id'])
                     ->first();
@@ -45,24 +44,24 @@ class EconomiesController extends Controller
                 if ($renda) {
                     $renda->update([
                         'origem' => trim($rendaData['origem']),
-                        'valor' => $rendaData['valor'],
+                        'valor'  => $rendaData['valor'],
+                        'data'   => $rendaData['data'] ?? $renda->data,
                     ]);
                     continue;
                 }
             }
 
-            // Criar nova renda
             Renda::create([
-                'user_id' => $userId,
-                'origem' => trim($rendaData['origem']),
-                'valor' => $rendaData['valor'],
+                'user_id'      => $userId,
+                'origem'       => trim($rendaData['origem']),
+                'valor'        => $rendaData['valor'],
+                'data'         => $rendaData['data'] ?? null,
                 'is_principal' => $index === 0,
             ]);
         }
 
         return redirect()->route('economies.show')->with('success', 'Rendas atualizadas com sucesso!');
     }
-
 
     public function show()
     {
@@ -72,7 +71,11 @@ class EconomiesController extends Controller
         }
 
         $userId = $sessionUser['id'];
-        $rendas = Renda::where('user_id', $userId)->orderBy('created_at', 'desc')->get();
+
+        // Ordena pela data escolhida (se houver), senão created_at
+        $rendas = Renda::where('user_id', $userId)
+            ->orderByRaw('COALESCE(`data`, `created_at`) DESC')
+            ->get();
 
         return view('show_rendas', compact('rendas'));
     }
@@ -104,6 +107,7 @@ class EconomiesController extends Controller
 
         return redirect()->route('economies.show')->with('success', 'Renda excluída com sucesso!');
     }
+
     public function saldo()
     {
         $sessionUser = session('user');
@@ -119,5 +123,4 @@ class EconomiesController extends Controller
 
         return view('saldo', compact('totalRendas', 'totalGastos', 'saldo'));
     }
-
 }
