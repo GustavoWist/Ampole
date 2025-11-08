@@ -1,20 +1,20 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\User;
 
 use Illuminate\Http\Request;
 
 class MainController extends Controller
 {
-   public function index(){
-    //show home view
-    return view('home');
-   
+   public function index()
+{
+    $sessionUser = session('user');
+    if (!$sessionUser || !isset($sessionUser['id'])) {
+        return redirect('/prohibited')->with('loginError', 'Sua sessão expirou. Faça login novamente.');
     }
 
-    public function newNote(){
-
-        echo "I'm am creating a new note";
-
-    }
+    $user = User::find($sessionUser['id']); // <- envia o usuário completo
+    return view('home', compact('user'));
+}
 }

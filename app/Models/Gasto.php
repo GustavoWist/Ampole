@@ -6,22 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Renda extends Model
+class Gasto extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'origem',
+        'descricao',
         'valor',
-        'data',         // ⬅️ novo
-        'is_principal',
+        'data',
     ];
 
     protected $casts = [
-        'valor'        => 'decimal:2',
-        'data'         => 'date',       // ⬅️ novo
-        'is_principal' => 'boolean',
+        'valor' => 'decimal:2',
+        'data' => 'date',
     ];
 
     public function user(): BelongsTo
